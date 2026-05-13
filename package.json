@@ -1,0 +1,33 @@
+{
+  "name": "whatsapp-bot",
+  "version": "1.0.0",
+  "description": "ChatBot de WhatsApp para RifaDorada",
+  "main": "dist/app.js",
+  "type": "module",
+  "scripts": {
+    "start": "npx tsx src/app.ts",
+    "lint": "eslint . --no-ignore",
+    "dev": "npm run lint && nodemon --signal SIGKILL  ./src/app.ts",
+    "build": "npx rollup -c"
+  },
+  "keywords": [],
+  "dependencies": {
+    "@builderbot/bot": "1.4.1",
+    "@builderbot/provider-baileys": "^1.3.5",
+    "dotenv": "^17.4.2",
+    "firebase-admin": "^13.9.0"
+  },
+  "devDependencies": {
+    "@types/node": "^25.0.0",
+    "eslint": "^9.0.0",
+    "eslint-plugin-builderbot": "latest",
+    "nodemon": "^3.1.11",
+    "rollup": "^4.10.0",
+    "rollup-plugin-typescript2": "^0.36.0",
+    "tsx": "^4.7.1",
+    "typescript": "^5.4.3",
+    "typescript-eslint": "^8.0.0"
+  },
+  "author": "",
+  "license": "ISC"
+}
