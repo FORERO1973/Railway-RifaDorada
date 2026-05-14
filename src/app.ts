@@ -152,23 +152,29 @@ const main = async () => {
                 return res.end(JSON.stringify({ status: 'error', message: 'Faltan datos requeridos' }))
             }
 
-            recordPayment(whatsapp, rifaId, monto, metodoPago || 'efectivo', nota)
+            console.log('[ABONO] Recibido:', { whatsapp, rifaId, monto, nombre, total, totalPagado })
 
-            const rifa = await getRaffleById(rifaId)
-            const phone = whatsapp.replace('@s.whatsapp.net', '')
-
-            if (rifa && botInstance) {
-                const statementMessage = generatePaymentStatement({
-                    nombre: nombre || 'Cliente',
-                    numeros: numeros || [],
-                    total: total || 0,
-                    totalPagado: totalPagado || 0,
-                    montoAbono: monto,
-                    metodoPago: metodoPago || 'efectivo',
-                    abonos: abonos || [],
-                })
-                await botInstance.provider.sendMessage(phone, statementMessage, {})
+            try {
+                await recordPayment(whatsapp, rifaId, monto, metodoPago || 'efectivo', nota)
+                console.log('[ABONO] Payment recorded')
+            } catch (e: any) {
+                console.log('[ABONO] Error recordPayment:', e.message)
             }
+
+            const jid = whatsapp.includes('@') ? whatsapp : `${whatsapp}@s.whatsapp.net`
+            const statementMessage = generatePaymentStatement({
+                nombre: nombre || 'Cliente',
+                numeros: numeros || [],
+                total: total || 0,
+                totalPagado: totalPagado || 0,
+                montoAbono: monto,
+                metodoPago: metodoPago || 'efectivo',
+                abonos: abonos || [],
+            })
+
+            console.log('[ABONO] Sending to:', jid, 'msg length:', statementMessage.length)
+            await bot.sendMessage(jid, statementMessage, {})
+            console.log('[ABONO] Message sent successfully')
 
             res.writeHead(200, { 'Content-Type': 'application/json' })
             return res.end(JSON.stringify({ status: 'ok', message: 'Abono registrado y notificación enviada' }))
