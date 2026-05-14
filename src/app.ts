@@ -161,6 +161,7 @@ const main = async () => {
                 montoAbono: monto,
                 metodoPago: metodoPago || 'efectivo',
                 abonos: abonos || [],
+                nota: nota || undefined,
             })
 
             await bot.sendMessage(jid, statementMessage, {})

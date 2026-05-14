@@ -477,10 +477,11 @@ export interface StatementInput {
     montoAbono: number
     metodoPago: string
     abonos: AbonoData[]
+    nota?: string
 }
 
 export const generatePaymentStatement = (input: StatementInput): string => {
-    const { nombre, numeros, total, totalPagado, montoAbono, metodoPago, abonos } = input
+    const { nombre, numeros, total, totalPagado, montoAbono, metodoPago, abonos, nota } = input
     const restante = total - totalPagado
     const estadoTotal = restante <= 0 ? '✅ PAGADO' : totalPagado > 0 ? '💳 ABONADO' : '⏳ PENDIENTE'
 
@@ -514,6 +515,7 @@ export const generatePaymentStatement = (input: StatementInput): string => {
 
     lines.push(
         `✅ *Nuevo abono:* $${montoAbono.toLocaleString('es-CO')} (${metodoPago})`,
+        ...(nota ? [`📝 ${nota}`] : []),
         '',
         restante <= 0
             ? '🎉 *¡Totalmente pagado!* Gracias por tu compromiso.'
