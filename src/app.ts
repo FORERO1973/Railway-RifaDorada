@@ -191,7 +191,7 @@ const main = async () => {
                 return res.end(JSON.stringify({ status: 'error', message: 'Rifa o participante no encontrado' }))
             }
 
-            const ticketMessage = generateTicketMessage(participante, rifa)
+            const ticketMessage = await generateTicketMessage(participante, rifa)
             await bot.sendMessage(`${whatsapp}@s.whatsapp.net`, ticketMessage, {})
 
             res.writeHead(200, { 'Content-Type': 'application/json' })

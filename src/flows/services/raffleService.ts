@@ -389,9 +389,9 @@ export const recordPayment = async (
     return null
 }
 
-export const generateTicketMessage = (participante: Participante, rifa: Rifa): string => {
+export const generateTicketMessage = async (participante: Participante, rifa: Rifa): Promise<string> => {
     const total = rifa.precioNumero * participante.numeros.length
-    const faltante = total - participante.totalPagado
+    const restante = total - participante.totalPagado
 
     const estadoEmoji = participante.estadoPago === 'pagado' ? '✅' : participante.estadoPago === 'abonado' ? '💳' : '⏳'
     const estadoTexto = participante.estadoPago === 'pagado' ? 'PAGADO' : participante.estadoPago === 'abonado' ? 'ABONADO' : 'PENDIENTE'
@@ -400,6 +400,14 @@ export const generateTicketMessage = (participante: Participante, rifa: Rifa): s
         day: '2-digit', month: 'long', year: 'numeric',
         hour: '2-digit', minute: '2-digit',
     })
+
+    let labelCuenta = 'al número de cuenta'
+    try {
+        const config = await getAppConfigFromFirestore()
+        if (config?.numeroCuenta?.trim()) {
+            labelCuenta = `${config.numeroCuenta.trim()} (*${(config.metodoPago || '').toUpperCase()}*)`
+        }
+    } catch { }
 
     const numeros = [...participante.numeros].sort((a, b) => parseInt(a) - parseInt(b)).join(', ')
 
@@ -418,11 +426,11 @@ export const generateTicketMessage = (participante: Participante, rifa: Rifa): s
         '━━ 💰 PAGO ━━',
         `*Total:* $${total.toLocaleString('es-CO')} COP`,
         `*Pagado:* $${participante.totalPagado.toLocaleString('es-CO')} COP`,
-        ...(faltante > 0 ? [`*Faltante:* $${faltante.toLocaleString('es-CO')} COP`] : []),
+        ...(restante > 0 ? [`*Restante:* $${restante.toLocaleString('es-CO')} COP`] : []),
         `*Estado:* ${estadoEmoji} ${estadoTexto}`,
         '',
         '━━ 📌 ━━',
-        '1. Consigna al número de cuenta',
+        `1. Consigna a ${labelCuenta}`,
         '2. Envía el comprobante por este chat',
         '3. ¡Listo! Ya participas',
         '',
@@ -436,7 +444,7 @@ export const generateTicketMessage = (participante: Participante, rifa: Rifa): s
 
 export const generatePaymentConfirmation = (participante: Participante, rifa: Rifa, monto: number): string => {
     const total = rifa.precioNumero * participante.numeros.length
-    const faltante = total - participante.totalPagado
+    const restante = total - participante.totalPagado
 
     return [
         '💰 *PAGO REGISTRADO*',
@@ -447,7 +455,7 @@ export const generatePaymentConfirmation = (participante: Participante, rifa: Ri
         '',
         `✅ *Abono:* $${monto.toLocaleString('es-CO')} COP`,
         `💵 *Pagado:* $${participante.totalPagado.toLocaleString('es-CO')} COP`,
-        faltante > 0 ? `⏳ *Faltante:* $${faltante.toLocaleString('es-CO')} COP` : '✅ *¡Totalmente pagado!*',
+        restante > 0 ? `⏳ *Restante:* $${restante.toLocaleString('es-CO')} COP` : '✅ *¡Totalmente pagado!*',
         '',
         participante.estadoPago === 'pagado'
             ? '🎉 ¡Felicidades! Completaste el pago.'
