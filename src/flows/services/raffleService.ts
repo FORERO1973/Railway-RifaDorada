@@ -401,11 +401,11 @@ export const generateTicketMessage = async (participante: Participante, rifa: Ri
         hour: '2-digit', minute: '2-digit',
     })
 
-    let labelCuenta = 'al número de cuenta'
+    let labelCuenta = 'la cuenta indicada'
     try {
         const config = await getAppConfigFromFirestore()
         if (config?.numeroCuenta?.trim()) {
-            labelCuenta = `${config.numeroCuenta.trim()} (*${(config.metodoPago || '').toUpperCase()}*)`
+            labelCuenta = `${config.numeroCuenta.trim()} (*${(config.metodoPago || '').toUpperCase()})`
         }
     } catch { }
 
@@ -430,7 +430,7 @@ export const generateTicketMessage = async (participante: Participante, rifa: Ri
         `*Estado:* ${estadoEmoji} ${estadoTexto}`,
         '',
         '━━ 📌 ━━',
-        `1. Consigna a ${labelCuenta}`,
+        `1. Transfiere a ${labelCuenta}`,
         '2. Envía el comprobante por este chat',
         '3. ¡Listo! Ya participas',
         '',
