@@ -6,7 +6,7 @@ import { writeFileSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { flow } from './flows'
-import { initRaffleService, syncRaffles, syncParticipants, recordPayment, getActiveRaffles as getRifas, getParticipants, getRaffleById, getParticipantByWhatsapp, generateTicketMessage, generatePaymentStatement } from './flows/services/raffleService'
+import { initRaffleService, syncRaffles, syncParticipants, getActiveRaffles as getRifas, getParticipants, getRaffleById, getParticipantByWhatsapp, generateTicketMessage, generatePaymentStatement } from './flows/services/raffleService'
 
 const PORT = process.env.PORT ?? 3008
 let botInstance: any = null
@@ -146,19 +146,10 @@ const main = async () => {
     adapterProvider.server.post(
         '/v1/sync/abono',
         handleCtx(async (bot, req, res) => {
-            const { whatsapp, rifaId, monto, metodoPago, nota, nombre, numeros, total, totalPagado, abonos } = req.body
-            if (!whatsapp || !rifaId || !monto) {
+            const { whatsapp, monto, metodoPago, nota, nombre, numeros, total, totalPagado, abonos } = req.body
+            if (!whatsapp || !monto) {
                 res.writeHead(400, { 'Content-Type': 'application/json' })
                 return res.end(JSON.stringify({ status: 'error', message: 'Faltan datos requeridos' }))
-            }
-
-            console.log('[ABONO] Recibido:', { whatsapp, rifaId, monto, nombre, total, totalPagado })
-
-            try {
-                await recordPayment(whatsapp, rifaId, monto, metodoPago || 'efectivo', nota)
-                console.log('[ABONO] Payment recorded')
-            } catch (e: any) {
-                console.log('[ABONO] Error recordPayment:', e.message)
             }
 
             const jid = whatsapp.includes('@') ? whatsapp : `${whatsapp}@s.whatsapp.net`
@@ -172,9 +163,8 @@ const main = async () => {
                 abonos: abonos || [],
             })
 
-            console.log('[ABONO] Sending to:', jid, 'msg length:', statementMessage.length)
             await bot.sendMessage(jid, statementMessage, {})
-            console.log('[ABONO] Message sent successfully')
+            console.log('[ABONO] Mensaje enviado a', jid)
 
             res.writeHead(200, { 'Content-Type': 'application/json' })
             return res.end(JSON.stringify({ status: 'ok', message: 'Abono registrado y notificación enviada' }))
