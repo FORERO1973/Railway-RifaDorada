@@ -463,6 +463,66 @@ export const generatePaymentConfirmation = (participante: Participante, rifa: Ri
     ].join('\n')
 }
 
+export interface AbonoData {
+    fecha: string
+    monto: number
+    metodoPago: string
+}
+
+export interface StatementInput {
+    nombre: string
+    numeros: string[]
+    total: number
+    totalPagado: number
+    montoAbono: number
+    metodoPago: string
+    abonos: AbonoData[]
+}
+
+export const generatePaymentStatement = (input: StatementInput): string => {
+    const { nombre, numeros, total, totalPagado, montoAbono, metodoPago, abonos } = input
+    const restante = total - totalPagado
+    const estadoTotal = restante <= 0 ? '✅ PAGADO' : totalPagado > 0 ? '💳 ABONADO' : '⏳ PENDIENTE'
+
+    const abonosLines = abonos.map((a, i) => {
+        const fecha = new Date(a.fecha).toLocaleDateString('es-CO', {
+            day: '2-digit', month: 'short',
+            hour: '2-digit', minute: '2-digit',
+        })
+        return `${i + 1}. ${fecha} — $${a.monto.toLocaleString('es-CO')} (${a.metodoPago})`
+    })
+
+    const lines: string[] = [
+        '💰 *ESTADO DE CUENTA*',
+        '━━━━━━━━━━━━━━━━━━━━━━',
+        `👤 *${nombre}*`,
+        `🎯 Números: ${numeros.join(', ')}`,
+        '',
+        '━━ 💰 RESUMEN ━━',
+        `*Total:* $${total.toLocaleString('es-CO')} COP`,
+        `*Pagado:* $${totalPagado.toLocaleString('es-CO')} COP`,
+        ...(restante > 0 ? [`*Restante:* $${restante.toLocaleString('es-CO')} COP`] : []),
+        `*Estado:* ${estadoTotal}`,
+        '',
+    ]
+
+    if (abonosLines.length > 0) {
+        lines.push('━━ 📋 ABONOS ━━')
+        lines.push(...abonosLines)
+        lines.push('')
+    }
+
+    lines.push(
+        `✅ *Nuevo abono:* $${montoAbono.toLocaleString('es-CO')} (${metodoPago})`,
+        '',
+        restante <= 0
+            ? '🎉 *¡Totalmente pagado!* Gracias por tu compromiso.'
+            : `📌 _Restante: $${restante.toLocaleString('es-CO')} COP_`,
+    )
+
+    return lines.join('\n')
+}
+
 export const getContactInfo = async (): Promise<{ responsable?: string; contactoResponsable?: string; organizacion?: string } | null> => {
     if (isFirebaseReady) {
         try {

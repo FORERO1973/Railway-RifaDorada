@@ -6,7 +6,7 @@ import { writeFileSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { flow } from './flows'
-import { initRaffleService, syncRaffles, syncParticipants, recordPayment, getActiveRaffles as getRifas, getParticipants, getRaffleById, getParticipantByWhatsapp, generateTicketMessage, generatePaymentConfirmation as generateAbonoMessage } from './flows/services/raffleService'
+import { initRaffleService, syncRaffles, syncParticipants, recordPayment, getActiveRaffles as getRifas, getParticipants, getRaffleById, getParticipantByWhatsapp, generateTicketMessage, generatePaymentStatement } from './flows/services/raffleService'
 
 const PORT = process.env.PORT ?? 3008
 let botInstance: any = null
@@ -146,27 +146,28 @@ const main = async () => {
     adapterProvider.server.post(
         '/v1/sync/abono',
         handleCtx(async (bot, req, res) => {
-            const { whatsapp, rifaId, monto, metodoPago, nota } = req.body
+            const { whatsapp, rifaId, monto, metodoPago, nota, nombre, numeros, total, totalPagado, abonos } = req.body
             if (!whatsapp || !rifaId || !monto) {
                 res.writeHead(400, { 'Content-Type': 'application/json' })
                 return res.end(JSON.stringify({ status: 'error', message: 'Faltan datos requeridos' }))
             }
 
-            const result = recordPayment(whatsapp, rifaId, monto, metodoPago || 'efectivo', nota)
-            if (!result) {
-                res.writeHead(404, { 'Content-Type': 'application/json' })
-                return res.end(JSON.stringify({ status: 'error', message: 'Participante no encontrado' }))
-            }
+            recordPayment(whatsapp, rifaId, monto, metodoPago || 'efectivo', nota)
 
             const rifa = await getRaffleById(rifaId)
-            const participante = await getParticipantByWhatsapp(whatsapp, rifaId)
+            const phone = whatsapp.replace('@s.whatsapp.net', '')
 
-            if (rifa && participante) {
-                const abonoMessage = generateAbonoMessage(participante, rifa, monto)
-                const phone = whatsapp.replace('@s.whatsapp.net', '')
-                if (botInstance) {
-                    await botInstance.provider.sendMessage(phone, abonoMessage, {})
-                }
+            if (rifa && botInstance) {
+                const statementMessage = generatePaymentStatement({
+                    nombre: nombre || 'Cliente',
+                    numeros: numeros || [],
+                    total: total || 0,
+                    totalPagado: totalPagado || 0,
+                    montoAbono: monto,
+                    metodoPago: metodoPago || 'efectivo',
+                    abonos: abonos || [],
+                })
+                await botInstance.provider.sendMessage(phone, statementMessage, {})
             }
 
             res.writeHead(200, { 'Content-Type': 'application/json' })
