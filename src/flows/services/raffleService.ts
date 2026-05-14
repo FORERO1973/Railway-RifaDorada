@@ -397,58 +397,41 @@ export const generateTicketMessage = (participante: Participante, rifa: Rifa): s
     const estadoTexto = participante.estadoPago === 'pagado' ? 'PAGADO' : participante.estadoPago === 'abonado' ? 'ABONADO' : 'PENDIENTE'
 
     const fecha = new Date(participante.fechaRegistro).toLocaleDateString('es-CO', {
-        day: '2-digit',
-        month: 'long',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
+        day: '2-digit', month: 'long', year: 'numeric',
+        hour: '2-digit', minute: '2-digit',
     })
 
-    const numerosOrdenados = [...participante.numeros].sort((a, b) => parseInt(a) - parseInt(b))
-    const numerosFormateados = numerosOrdenados.join('  •  ')
+    const numeros = [...participante.numeros].sort((a, b) => parseInt(a) - parseInt(b)).join(', ')
 
-    return [
-        '╔═══════════════════════════════════════╗',
-        '║      🎫 RIFADORADA - TU TICKET 🎫     ║',
-        '╚═══════════════════════════════════════╝',
+    const lines = [
+        '🎫 *RIFADORADA — TICKET*',
+        '━━━━━━━━━━━━━━━━━━━━━━━',
+        `🏆 *Rifa:* ${rifa.nombre}`,
+        `📅 ${fecha}`,
         '',
-        `🏆 *RIFA:* ${rifa.nombre}`,
+        `👤 *${participante.nombre}*`,
+        `📱 ${participante.whatsapp}`,
+        `📍 ${participante.ciudad}`,
         '',
-        '───────────────── DATOS ─────────────────',
+        `🎯 *Números:* ${numeros}`,
         '',
-        `📅 *Fecha:* ${fecha}`,
-        `👤 *Cliente:* ${participante.nombre}`,
-        `📍 *Ciudad:* ${participante.ciudad}`,
-        `📱 *Teléfono:* ${participante.whatsapp}`,
+        '━━ 💰 PAGO ━━',
+        `*Total:* $${total.toLocaleString('es-CO')} COP`,
+        `*Pagado:* $${participante.totalPagado.toLocaleString('es-CO')} COP`,
+        ...(faltante > 0 ? [`*Faltante:* $${faltante.toLocaleString('es-CO')} COP`] : []),
+        `*Estado:* ${estadoEmoji} ${estadoTexto}`,
         '',
-        '────────────── TUS NÚMEROS ──────────────',
+        '━━ 📌 ━━',
+        '1. Consigna al número de cuenta',
+        '2. Envía el comprobante por este chat',
+        '3. ¡Listo! Ya participas',
         '',
-        `       🎯 ${numerosFormateados} 🎯`,
+        '📞 _¿Dudas? Escribe y te ayudamos_',
         '',
-        '──────────────── PAGO ───────────────────',
-        '',
-        `💰 *Total:* $${total.toLocaleString('es-CO')} COP`,
-        `💵 *Pagado:* $${participante.totalPagado.toLocaleString('es-CO')} COP`,
-        `⏳ *Faltante:* $${faltante.toLocaleString('es-CO')} COP`,
-        '',
-        `📊 *Estado:* ${estadoEmoji} ${estadoTexto}`,
-        '',
-        '─────────────────────────────────────────',
-        '',
-        '📌 *INSTRUCCIONES DE PAGO*',
-        '',
-        '1️⃣ Realiza la consignación al número de cuenta',
-        '2️⃣ Envía el comprobante por este chat',
-        '3️⃣ ¡Listo! Ya participas en el sorteo',
-        '',
-        '📞 ¿Dudas? Escribe y te ayudamos',
-        '',
-        '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
-        '',
-        '         🍀 ¡MUCHA SUERTE! 🍀',
-        '    Esperamos que ganes el premio',
-        '',
-    ].join('\n')
+        '🍀 *¡Mucha suerte!*',
+    ]
+
+    return lines.join('\n')
 }
 
 export const generatePaymentConfirmation = (participante: Participante, rifa: Rifa, monto: number): string => {
@@ -457,22 +440,18 @@ export const generatePaymentConfirmation = (participante: Participante, rifa: Ri
 
     return [
         '💰 *PAGO REGISTRADO*',
-        '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+        '━━━━━━━━━━━━━━━━━━━',
+        `🏆 *${rifa.nombre}*`,
+        `👤 ${participante.nombre}`,
+        `🎯 ${participante.numeros.join(', ')}`,
         '',
-        `🏆 *Rifa:* ${rifa.nombre}`,
-        '',
-        `👤 *Cliente:* ${participante.nombre}`,
-        `🎯 *Números:* ${participante.numeros.join(', ')}`,
-        '',
-        `✅ *Monto:* $${monto.toLocaleString('es-CO')} COP`,
-        `💵 *Total pagado:* $${participante.totalPagado.toLocaleString('es-CO')} COP`,
-        `⏳ *Faltante:* $${faltante.toLocaleString('es-CO')} COP`,
+        `✅ *Abono:* $${monto.toLocaleString('es-CO')} COP`,
+        `💵 *Pagado:* $${participante.totalPagado.toLocaleString('es-CO')} COP`,
+        faltante > 0 ? `⏳ *Faltante:* $${faltante.toLocaleString('es-CO')} COP` : '✅ *¡Totalmente pagado!*',
         '',
         participante.estadoPago === 'pagado'
-            ? '🎉 ¡Felicidades! Has completado el pago total.'
-            : '📌 Recuerda que aún falta por pagar.',
-        '',
-        '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+            ? '🎉 ¡Felicidades! Completaste el pago.'
+            : '📌 _Recuerda que aún falta por pagar._',
     ].join('\n')
 }
 
