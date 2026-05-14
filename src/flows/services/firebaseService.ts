@@ -314,7 +314,7 @@ const getPhoneSearchFormats = (phone: string): string[] => {
     return formats.flatMap(f => [f, f + '@s.whatsapp.net'])
 }
 
-export const getParticipanteByWhatsappFromFirestore = async (whatsapp: string, rifaId?: string): Promise<FirestoreParticipante | null> => {
+export const getParticipanteByWhatsappFromFirestore = async (whatsapp: string, rifaId?: string, numeros?: string[]): Promise<FirestoreParticipante | null> => {
     if (!db) return null
 
     try {
@@ -323,27 +323,38 @@ export const getParticipanteByWhatsappFromFirestore = async (whatsapp: string, r
         console.log('[FIREBASE] Buscando participante con formatos:', formatsToTry)
 
         for (const phoneFormat of formatsToTry) {
-            let snapshot
+            let query: any = db.collection('participantes')
+                .where('whatsapp', '==', phoneFormat)
             if (rifaId) {
-                snapshot = await db.collection('participantes')
-                    .where('whatsapp', '==', phoneFormat)
-                    .where('rifaId', '==', rifaId)
-                    .limit(1)
-                    .get()
-            } else {
-                snapshot = await db.collection('participantes')
-                    .where('whatsapp', '==', phoneFormat)
-                    .limit(1)
-                    .get()
+                query = query.where('rifaId', '==', rifaId)
             }
+            if (numeros && numeros.length > 0) {
+                query = query.where('numeros', 'array-contains-any', numeros)
+            }
+            const snapshot = await query.limit(10).get()
 
             if (!snapshot.empty) {
-                const doc = snapshot.docs[0]
-                const data = doc.data()
-                console.log('[FIREBASE] Participante encontrado con formato:', phoneFormat, '- Nombre:', data.nombre)
+                const docs = snapshot.docs.map(doc => {
+                    const data = doc.data()
+                    return { doc, data, matchScore: 0 }
+                })
+
+                if (numeros && numeros.length > 0) {
+                    const numerosSet = new Set(numeros)
+                    docs.forEach(item => {
+                        const itemNumeros = Array.isArray(item.data.numeros) ? item.data.numeros : []
+                        const matchCount = itemNumeros.filter((n: string) => numerosSet.has(n)).length
+                        item.matchScore = matchCount
+                    })
+                    docs.sort((a, b) => b.matchScore - a.matchScore)
+                }
+
+                const best = docs[0]
+                const data = best.data
+                console.log('[FIREBASE] Participante encontrado:', data.nombre, '- score:', best.matchScore, '- numeros:', data.numeros)
 
                 return {
-                    id: doc.id,
+                    id: best.doc.id,
                     rifaId: data.rifaId || '',
                     nombre: data.nombre || '',
                     whatsapp: data.whatsapp || '',

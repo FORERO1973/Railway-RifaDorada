@@ -190,13 +190,13 @@ export const getParticipants = async (): Promise<Participante[]> => {
     return []
 }
 
-export const getParticipantByWhatsapp = async (whatsapp: string, rifaId?: string): Promise<Participante | undefined> => {
+export const getParticipantByWhatsapp = async (whatsapp: string, rifaId?: string, numeros?: string[]): Promise<Participante | undefined> => {
     if (isFirebaseReady) {
         try {
             const normalizedPhone = normalizePhoneNumber(whatsapp)
-            console.log('[RAFFLE] Buscando participante con teléfono normalizado:', normalizedPhone)
+            console.log('[RAFFLE] Buscando participante con teléfono normalizado:', normalizedPhone, 'numeros:', numeros)
             
-            const p = await getParticipanteByWhatsappFromFirestore(normalizedPhone, rifaId)
+            const p = await getParticipanteByWhatsappFromFirestore(normalizedPhone, rifaId, numeros)
             if (!p) return undefined
 
             console.log('[RAFFLE] Participante encontrado:', p.nombre, '- Estado:', p.estadoPago, '- Total pagado:', p.totalPagado)
