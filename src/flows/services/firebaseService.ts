@@ -74,6 +74,35 @@ export interface FirestoreParticipante {
     abonos?: any
 }
 
+export interface FirestoreAppConfig {
+    organizacion: string
+    responsable: string
+    telefono: string
+    email: string
+    numeroCuenta: string
+    metodoPago: string
+}
+
+export const getAppConfigFromFirestore = async (): Promise<FirestoreAppConfig | null> => {
+    if (!db) return null
+    try {
+        const doc = await db.collection('config').doc('app').get()
+        if (!doc.exists) return null
+        const data = doc.data()!
+        return {
+            organizacion: data.organizacion || '',
+            responsable: data.responsable || '',
+            telefono: data.telefono || '',
+            email: data.email || '',
+            numeroCuenta: data.numeroCuenta || '',
+            metodoPago: data.metodoPago || 'nequi',
+        }
+    } catch (error) {
+        console.error('[FIREBASE] Error obteniendo config:', error)
+        return null
+    }
+}
+
 const parseAbonos = (abonosData: any): Array<{ id: string; fecha: string; monto: number; metodoPago: string; nota?: string }> => {
     if (!abonosData) return []
     

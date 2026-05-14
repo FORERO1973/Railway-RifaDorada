@@ -8,6 +8,7 @@ import {
     getParticipanteByWhatsappFromFirestore,
     saveParticipanteToFirestore,
     recordPaymentToFirestore,
+    getAppConfigFromFirestore,
     type FirestoreRifa,
     type FirestoreParticipante
 } from './firebaseService'
@@ -478,6 +479,15 @@ export const generatePaymentConfirmation = (participante: Participante, rifa: Ri
 export const getContactInfo = async (): Promise<{ responsable?: string; contactoResponsable?: string; organizacion?: string } | null> => {
     if (isFirebaseReady) {
         try {
+            const config = await getAppConfigFromFirestore()
+            if (config && (config.responsable || config.telefono || config.organizacion)) {
+                return {
+                    responsable: config.responsable,
+                    contactoResponsable: config.telefono,
+                    organizacion: config.organizacion,
+                }
+            }
+
             const rifas = await getRifasFromFirestore()
             const activas = rifas.filter(r => r.activa)
             for (const r of activas) {
