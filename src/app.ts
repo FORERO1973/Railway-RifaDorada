@@ -72,7 +72,7 @@ const main = async () => {
     adapterProvider.server.post(
         '/v1/send/wa',
         handleCtx(async (bot, req, res) => {
-            const { number, message } = req.body
+            const { number, message, organizacionId } = req.body
             if (!number || !message) {
                 res.writeHead(400, { 'Content-Type': 'application/json' })
                 return res.end(JSON.stringify({ status: 'error', message: 'Faltan parámetros requeridos' }))
@@ -82,7 +82,7 @@ const main = async () => {
 
             try {
                 await bot.sendMessage(jid, message, {})
-                console.log('[SEND] to', number)
+                console.log('[SEND] to', number, organizacionId ? `(org: ${organizacionId})` : '')
                 res.writeHead(200, { 'Content-Type': 'application/json' })
                 return res.end(JSON.stringify({ status: 'ok', message: 'Mensaje enviado' }))
             } catch (e: any) {
@@ -123,6 +123,8 @@ const main = async () => {
                 res.writeHead(400, { 'Content-Type': 'application/json' })
                 return res.end(JSON.stringify({ status: 'error', message: 'rifas debe ser un array' }))
             }
+            const orgs = [...new Set(rifas.map((r: any) => r.organizacionId).filter(Boolean))]
+            console.log(`[SYNC] ${rifas.length} rifas sincronizadas (${orgs.length} organizaciones)`)
             syncRaffles(rifas)
             res.writeHead(200, { 'Content-Type': 'application/json' })
             return res.end(JSON.stringify({ status: 'ok', message: `${rifas.length} rifas sincronizadas` }))
@@ -137,6 +139,8 @@ const main = async () => {
                 res.writeHead(400, { 'Content-Type': 'application/json' })
                 return res.end(JSON.stringify({ status: 'error', message: 'participantes debe ser un array' }))
             }
+            const orgs = [...new Set(participantes.map((p: any) => p.organizacionId).filter(Boolean))]
+            console.log(`[SYNC] ${participantes.length} participantes sincronizados (${orgs.length} organizaciones)`)
             syncParticipants(participantes)
             res.writeHead(200, { 'Content-Type': 'application/json' })
             return res.end(JSON.stringify({ status: 'ok', message: `${participantes.length} participantes sincronizados` }))
@@ -146,7 +150,7 @@ const main = async () => {
     adapterProvider.server.post(
         '/v1/sync/abono',
         handleCtx(async (bot, req, res) => {
-            const { whatsapp, monto, metodoPago, nota, nombre, numeros, total, totalPagado, abonos } = req.body
+            const { whatsapp, monto, metodoPago, nota, nombre, numeros, total, totalPagado, abonos, organizacionId } = req.body
             if (!whatsapp || !monto) {
                 res.writeHead(400, { 'Content-Type': 'application/json' })
                 return res.end(JSON.stringify({ status: 'error', message: 'Faltan datos requeridos' }))
@@ -175,7 +179,7 @@ const main = async () => {
     adapterProvider.server.post(
         '/v1/send/ticket',
         handleCtx(async (bot, req, res) => {
-            const { whatsapp, rifaId } = req.body
+            const { whatsapp, rifaId, organizacionId } = req.body
             if (!whatsapp || !rifaId) {
                 res.writeHead(400, { 'Content-Type': 'application/json' })
                 return res.end(JSON.stringify({ status: 'error', message: 'Faltan datos requeridos' }))
@@ -200,7 +204,7 @@ const main = async () => {
     adapterProvider.server.post(
         '/v1/send/custom',
         handleCtx(async (bot, req, res) => {
-            const { whatsapp, message, urlMedia } = req.body
+            const { whatsapp, message, urlMedia, organizacionId } = req.body
             if (!whatsapp || !message) {
                 res.writeHead(400, { 'Content-Type': 'application/json' })
                 return res.end(JSON.stringify({ status: 'error', message: 'Faltan datos requeridos' }))

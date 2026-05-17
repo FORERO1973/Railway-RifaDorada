@@ -56,6 +56,7 @@ export interface FirestoreRifa {
     responsable?: string
     contactoResponsable?: string
     organizacion?: string
+    organizacionId?: string
     imagenes?: string[]
     numeroGanador?: string
 }
@@ -63,6 +64,7 @@ export interface FirestoreRifa {
 export interface FirestoreParticipante {
     id: string
     rifaId: string
+    organizacionId?: string
     nombre: string
     whatsapp: string
     ciudad: string
@@ -83,9 +85,24 @@ export interface FirestoreAppConfig {
     metodoPago: string
 }
 
-export const getAppConfigFromFirestore = async (): Promise<FirestoreAppConfig | null> => {
+export const getAppConfigFromFirestore = async (organizacionId?: string): Promise<FirestoreAppConfig | null> => {
     if (!db) return null
     try {
+        if (organizacionId) {
+            const orgDoc = await db.collection('organizaciones').doc(organizacionId).get()
+            if (orgDoc.exists) {
+                const data = orgDoc.data()!
+                return {
+                    organizacion: data.nombre || '',
+                    responsable: data.responsable || '',
+                    telefono: data.telefono || '',
+                    email: data.email || '',
+                    numeroCuenta: data.numeroCuenta || '',
+                    metodoPago: data.metodoPago || 'nequi',
+                }
+            }
+        }
+
         const doc = await db.collection('config').doc('app').get()
         if (!doc.exists) return null
         const data = doc.data()!
@@ -165,6 +182,7 @@ export const getRifasFromFirestore = async (): Promise<FirestoreRifa[]> => {
                 responsable: data.responsable,
                 contactoResponsable: data.contactoResponsable,
                 organizacion: data.organizacion,
+                organizacionId: data.organizacionId || '',
                 imagenes: data.imagenes || [],
                 numeroGanador: data.numeroGanador,
             })
@@ -225,6 +243,7 @@ export const getRifaFromFirestore = async (id: string): Promise<FirestoreRifa | 
             responsable: data.responsable,
             contactoResponsable: data.contactoResponsable,
             organizacion: data.organizacion,
+            organizacionId: data.organizacionId || '',
             imagenes: data.imagenes || [],
             numeroGanador: data.numeroGanador,
         }
@@ -245,6 +264,7 @@ export const getAllParticipantesFromFirestore = async (): Promise<FirestoreParti
             return {
                 id: doc.id,
                 rifaId: data.rifaId || '',
+                organizacionId: data.organizacionId || '',
                 nombre: data.nombre || '',
                 whatsapp: data.whatsapp || '',
                 ciudad: data.ciudad || '',
@@ -275,6 +295,7 @@ export const getParticipantesFromFirestore = async (rifaId: string): Promise<Fir
             return {
                 id: doc.id,
                 rifaId: data.rifaId || '',
+                organizacionId: data.organizacionId || '',
                 nombre: data.nombre || '',
                 whatsapp: data.whatsapp || '',
                 ciudad: data.ciudad || '',
@@ -356,6 +377,7 @@ export const getParticipanteByWhatsappFromFirestore = async (whatsapp: string, r
                 return {
                     id: best.doc.id,
                     rifaId: data.rifaId || '',
+                    organizacionId: data.organizacionId || '',
                     nombre: data.nombre || '',
                     whatsapp: data.whatsapp || '',
                     ciudad: data.ciudad || '',
@@ -398,6 +420,8 @@ export const saveParticipanteToFirestore = async (
 
         await docRef.set({
             rifaId,
+            organizacionId: rifa.organizacionId || '',
+            nombre: participante.nombre,
             nombre: participante.nombre,
             whatsapp: participante.whatsapp,
             ciudad: participante.ciudad,
@@ -477,6 +501,7 @@ export const recordPaymentToFirestore = async (
         return {
             id: doc.id,
             rifaId: data.rifaId,
+            organizacionId: data.organizacionId || '',
             nombre: data.nombre,
             whatsapp: data.whatsapp,
             ciudad: data.ciudad,

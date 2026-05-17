@@ -45,6 +45,7 @@ export interface Rifa {
     responsable?: string
     contactoResponsable?: string
     organizacion?: string
+    organizacionId?: string
     imagenes?: string[]
     numeroGanador?: string
 }
@@ -52,6 +53,7 @@ export interface Rifa {
 export interface Participante {
     id: string
     rifaId: string
+    organizacionId?: string
     nombre: string
     whatsapp: string
     ciudad: string
@@ -93,11 +95,13 @@ export const initRaffleService = async (): Promise<void> => {
 export const rnd = () => Math.floor(Math.random() * 800) + 500
 
 export const syncRaffles = async (newRifas: Rifa[]): Promise<void> => {
-    console.log(`[SYNC] ${newRifas.length} rifas sincronizadas desde la App`)
+    const orgs = [...new Set(newRifas.map(r => r.organizacionId).filter(Boolean))]
+    console.log(`[SYNC] ${newRifas.length} rifas sincronizadas (${orgs.length} organizaciones)`)
 }
 
 export const syncParticipants = async (newParticipants: Participante[]): Promise<void> => {
-    console.log(`[SYNC] ${newParticipants.length} participantes sincronizados desde la App`)
+    const orgs = [...new Set(newParticipants.map(p => p.organizacionId).filter(Boolean))]
+    console.log(`[SYNC] ${newParticipants.length} participantes sincronizados (${orgs.length} organizaciones)`)
 }
 
 export const getActiveRaffles = async (): Promise<Rifa[]> => {
@@ -123,6 +127,7 @@ export const getActiveRaffles = async (): Promise<Rifa[]> => {
                     responsable: r.responsable,
                     contactoResponsable: r.contactoResponsable,
                     organizacion: r.organizacion,
+                    organizacionId: r.organizacionId,
                     imagenes: r.imagenes || [],
                     numeroGanador: r.numeroGanador,
                 }))
@@ -155,6 +160,7 @@ export const getRaffleById = async (id: string): Promise<Rifa | undefined> => {
                 responsable: rifa.responsable,
                 contactoResponsable: rifa.contactoResponsable,
                 organizacion: rifa.organizacion,
+                organizacionId: rifa.organizacionId,
                 imagenes: rifa.imagenes || [],
                 numeroGanador: rifa.numeroGanador,
             }
@@ -173,6 +179,7 @@ export const getParticipants = async (): Promise<Participante[]> => {
             return participantes.map(p => ({
                 id: p.id,
                 rifaId: p.rifaId,
+                organizacionId: p.organizacionId,
                 nombre: p.nombre,
                 whatsapp: p.whatsapp,
                 ciudad: p.ciudad,
@@ -204,6 +211,7 @@ export const getParticipantByWhatsapp = async (whatsapp: string, rifaId?: string
             return {
                 id: p.id,
                 rifaId: p.rifaId,
+                organizacionId: p.organizacionId,
                 nombre: p.nombre,
                 whatsapp: p.whatsapp,
                 ciudad: p.ciudad,
@@ -240,6 +248,7 @@ export const getAllParticipantsByPhone = async (whatsapp: string): Promise<Parti
             return filtered.map(p => ({
                 id: p.id,
                 rifaId: p.rifaId,
+                organizacionId: p.organizacionId,
                 nombre: p.nombre,
                 whatsapp: p.whatsapp,
                 ciudad: p.ciudad,
@@ -282,6 +291,7 @@ export const getParticipantsByRaffle = async (rifaId: string): Promise<Participa
             return participantes.map(p => ({
                 id: p.id,
                 rifaId: p.rifaId,
+                organizacionId: p.organizacionId,
                 nombre: p.nombre,
                 whatsapp: p.whatsapp,
                 ciudad: p.ciudad,
@@ -371,6 +381,7 @@ export const recordPayment = async (
                 return {
                     id: participante.id,
                     rifaId: participante.rifaId,
+                    organizacionId: participante.organizacionId,
                     nombre: participante.nombre,
                     whatsapp: participante.whatsapp,
                     ciudad: participante.ciudad,
@@ -525,10 +536,10 @@ export const generatePaymentStatement = (input: StatementInput): string => {
     return lines.join('\n')
 }
 
-export const getContactInfo = async (): Promise<{ responsable?: string; contactoResponsable?: string; organizacion?: string } | null> => {
+export const getContactInfo = async (organizacionId?: string): Promise<{ responsable?: string; contactoResponsable?: string; organizacion?: string } | null> => {
     if (isFirebaseReady) {
         try {
-            const config = await getAppConfigFromFirestore()
+            const config = await getAppConfigFromFirestore(organizacionId)
             if (config && (config.responsable || config.telefono || config.organizacion)) {
                 return {
                     responsable: config.responsable,
