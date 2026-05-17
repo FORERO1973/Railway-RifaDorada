@@ -422,7 +422,6 @@ export const saveParticipanteToFirestore = async (
             rifaId,
             organizacionId: rifa.organizacionId || '',
             nombre: participante.nombre,
-            nombre: participante.nombre,
             whatsapp: participante.whatsapp,
             ciudad: participante.ciudad,
             numeros: numerosStr,

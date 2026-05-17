@@ -2,9 +2,9 @@ import { createBot, createProvider, createFlow, addKeyword, utils } from '@build
 import { MemoryDB as Database } from '@builderbot/bot'
 import { BaileysProvider as Provider } from '@builderbot/provider-baileys'
 import bodyParser from 'body-parser'
-import { writeFileSync } from 'fs'
+import { writeFileSync, readFileSync, existsSync, mkdirSync } from 'fs'
 import { tmpdir } from 'os'
-import { join } from 'path'
+import { join, extname } from 'path'
 import { flow } from './flows'
 import { initRaffleService, syncRaffles, syncParticipants, getActiveRaffles as getRifas, getParticipants, getRaffleById, getParticipantByWhatsapp, generateTicketMessage, generatePaymentStatement } from './flows/services/raffleService'
 
@@ -232,6 +232,74 @@ const main = async () => {
             const participantes = await getParticipants()
             res.writeHead(200, { 'Content-Type': 'application/json' })
             return res.end(JSON.stringify({ status: 'ok', participantes }))
+        })
+    )
+
+    // ===== UPLOADS DE IMÁGENES =====
+    const uploadDir = join(process.cwd(), 'uploads')
+    if (!existsSync(uploadDir)) {
+        mkdirSync(uploadDir, { recursive: true })
+        console.log('[UPLOAD] Directorio creado:', uploadDir)
+    }
+
+    adapterProvider.server.post(
+        '/v1/upload-images',
+        handleCtx(async (bot, req, res) => {
+            try {
+                const { images } = req.body
+                if (!Array.isArray(images) || images.length === 0) {
+                    res.writeHead(400, { 'Content-Type': 'application/json' })
+                    return res.end(JSON.stringify({ status: 'error', message: 'Se requiere un array images no vacío' }))
+                }
+                if (images.length > 5) {
+                    res.writeHead(400, { 'Content-Type': 'application/json' })
+                    return res.end(JSON.stringify({ status: 'error', message: 'Máximo 5 imágenes' }))
+                }
+                const urls: string[] = []
+                for (let i = 0; i < images.length; i++) {
+                    const base64Data = images[i].includes('base64,')
+                        ? images[i].split('base64,')[1]
+                        : images[i]
+                    const buffer = Buffer.from(base64Data, 'base64')
+                    const filename = `rifa_${Date.now()}_${i}.jpg`
+                    writeFileSync(join(uploadDir, filename), buffer)
+                    urls.push(`/uploads/${filename}`)
+                }
+                const host = req.headers.host || `localhost:${PORT}`
+                const fullUrls = urls.map(u => `http://${host}${u}`)
+                console.log('[UPLOAD]', fullUrls.length, 'imagen(es) subida(s)')
+                res.writeHead(200, { 'Content-Type': 'application/json' })
+                return res.end(JSON.stringify({ status: 'ok', urls: fullUrls }))
+            } catch (e: any) {
+                console.log('[UPLOAD ERROR]', e.message)
+                res.writeHead(500, { 'Content-Type': 'application/json' })
+                return res.end(JSON.stringify({ status: 'error', message: e.message }))
+            }
+        })
+    )
+
+    adapterProvider.server.get(
+        '/uploads/:filename',
+        handleCtx(async (bot, req, res) => {
+            const filename = req.params.filename
+            if (!filename || filename.includes('..') || filename.includes('/') || filename.includes('\\')) {
+                res.writeHead(400)
+                return res.end('Invalid filename')
+            }
+            const filePath = join(uploadDir, filename)
+            if (!existsSync(filePath)) {
+                res.writeHead(404)
+                return res.end('Not found')
+            }
+            const buffer = readFileSync(filePath)
+            const mime: Record<string, string> = {
+                '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
+                '.png': 'image/png', '.gif': 'image/gif',
+                '.webp': 'image/webp',
+            }
+            const ext = extname(filename).toLowerCase()
+            res.writeHead(200, { 'Content-Type': mime[ext] || 'application/octet-stream' })
+            return res.end(buffer)
         })
     )
 
