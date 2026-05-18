@@ -13,6 +13,8 @@ import {
     type FirestoreParticipante
 } from './firebaseService'
 
+export { getAppConfigFromFirestore }
+
 export const normalizePhoneNumber = (phone: string): string => {
     let cleaned = phone.replace(/[^\d]/g, '')
     

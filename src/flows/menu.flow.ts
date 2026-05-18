@@ -7,6 +7,7 @@ import {
     getAllParticipantsByPhone,
     normalizePhoneNumber,
     getContactInfo,
+    getAppConfigFromFirestore,
 } from './services/raffleService'
 import { numbersFlow } from './numbers.flow'
 
@@ -140,7 +141,17 @@ export const menuFlow = addKeyword(['menu', 'inicio', 'volver', 'atrás'])
 
             const pendientes = participantes.filter(p => p.estadoPago !== 'pagado')
             if (pendientes.length > 0) {
-                await sendWithPresence('📌 *¿Cómo pagar?*\n\n1. Realiza la consignación al número de cuenta indicado por el organizador\n2. Envía el comprobante al organizador\n3. ¡Listo! Actualizaremos tu estado')
+                let labelCuenta = 'la cuenta indicada'
+                try {
+                    const primRifa = await getRaffleById(pendientes[0].rifaId)
+                    if (primRifa?.organizacionId) {
+                        const config = await getAppConfigFromFirestore(primRifa.organizacionId)
+                        if (config?.numeroCuenta?.trim()) {
+                            labelCuenta = `${config.numeroCuenta.trim()} (*${(config.metodoPago || '').toUpperCase()})`
+                        }
+                    }
+                } catch {}
+                await sendWithPresence(`📌 *¿CÓMO PAGAR?*\n\n1. Transfiere a ${labelCuenta}\n2. Envía el comprobante por este chat\n3. ¡Listo! Actualizamos tu estado`)
             }
             return
         }
