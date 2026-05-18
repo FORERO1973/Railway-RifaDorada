@@ -1,6 +1,10 @@
 import { addKeyword } from '@builderbot/bot'
 import type { BotContext, BotMethods } from '@builderbot/bot/dist/types'
 import { rnd, getActiveRaffles, getRaffleById, getAvailableNumbers } from './services/raffleService'
+import { getStatusImageUrl } from '../sharedState'
+import { tmpdir } from 'os'
+import { join } from 'path'
+import { writeFileSync, unlinkSync } from 'fs'
 
 export const numbersFlow = addKeyword(['numeros', 'disponibles', 'ver numeros'])
     .addAction(async (ctx: BotContext, { flowDynamic, state }: BotMethods) => {
@@ -31,7 +35,7 @@ export const numbersFlow = addKeyword(['numeros', 'disponibles', 'ver numeros'])
         await state.update({ numbersStep: 'select_raffle' })
     })
     .addAnswer('', { capture: true, idle: 60000 },
-        async (ctx: BotContext, { fallBack, state, flowDynamic }: BotMethods) => {
+        async (ctx: BotContext, { fallBack, state, flowDynamic, provider }: BotMethods) => {
             const input = ctx.body.trim().toLowerCase()
             if (['menu', 'inicio', 'volver', 'atrás', 'cancelar', 'salir'].includes(input)) {
                 return fallBack('Responde *menu* para volver al inicio.')
@@ -60,6 +64,24 @@ export const numbersFlow = addKeyword(['numeros', 'disponibles', 'ver numeros'])
                     return
                 }
 
+                // Intentar enviar imagen de estado cacheada
+                const imageUrl = getStatusImageUrl(rifa.id)
+                if (imageUrl) {
+                    try {
+                        const jid = ctx.key.remoteJid as string
+                        const response = await fetch(imageUrl)
+                        const buffer = Buffer.from(await response.arrayBuffer())
+                        const tmpFile = join(tmpdir(), `status_${rifa.id}_${Date.now()}.png`)
+                        writeFileSync(tmpFile, buffer)
+                        await (provider as any).sendImage(jid, tmpFile, `📊 *${rifa.nombre}*`)
+                        try { unlinkSync(tmpFile) } catch { }
+                        return
+                    } catch (e) {
+                        console.log('[NUMBERS] Error enviando imagen de estado:', e)
+                    }
+                }
+
+                // Fallback a texto
                 const total = rifa.cantidadNumeros
                 const vendidos = total - disponibles.length
 

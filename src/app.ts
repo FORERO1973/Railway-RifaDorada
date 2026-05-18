@@ -7,9 +7,11 @@ import { tmpdir } from 'os'
 import { join, extname } from 'path'
 import { flow } from './flows'
 import { initRaffleService, syncRaffles, syncParticipants, getActiveRaffles as getRifas, getParticipants, getRaffleById, getParticipantByWhatsapp, generateTicketMessage, generatePaymentStatement } from './flows/services/raffleService'
+import { setStatusImageUrl } from './sharedState'
 
 const PORT = process.env.PORT ?? 3008
 let botInstance: any = null
+
 
 const main = async () => {
     await initRaffleService()
@@ -300,6 +302,39 @@ const main = async () => {
             const ext = extname(filename).toLowerCase()
             res.writeHead(200, { 'Content-Type': mime[ext] || 'application/octet-stream' })
             return res.end(buffer)
+        })
+    )
+
+    // ===== STATUS IMAGE (desde la App) =====
+    adapterProvider.server.post(
+        '/v1/status-image',
+        handleCtx(async (bot, req, res) => {
+            try {
+                const { rifaId, imageBase64 } = req.body
+                if (!rifaId || !imageBase64) {
+                    res.writeHead(400, { 'Content-Type': 'application/json' })
+                    return res.end(JSON.stringify({ status: 'error', message: 'Se requiere rifaId e imageBase64' }))
+                }
+
+                const base64Data = imageBase64.includes('base64,')
+                    ? imageBase64.split('base64,')[1]
+                    : imageBase64
+                const buffer = Buffer.from(base64Data, 'base64')
+                const filename = `status_${rifaId}.png`
+                writeFileSync(join(uploadDir, filename), buffer)
+
+                const host = req.headers.host || `localhost:${PORT}`
+                const url = `http://${host}/uploads/${filename}`
+                setStatusImageUrl(rifaId, url)
+
+                console.log('[STATUS-IMAGE] Guardada para rifa', rifaId, '→', url)
+                res.writeHead(200, { 'Content-Type': 'application/json' })
+                return res.end(JSON.stringify({ status: 'ok', url }))
+            } catch (e: any) {
+                console.log('[STATUS-IMAGE ERROR]', e.message)
+                res.writeHead(500, { 'Content-Type': 'application/json' })
+                return res.end(JSON.stringify({ status: 'error', message: e.message }))
+            }
         })
     )
 
