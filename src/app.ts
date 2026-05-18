@@ -159,7 +159,7 @@ const main = async () => {
             }
 
             const jid = whatsapp.includes('@') ? whatsapp : `${whatsapp}@s.whatsapp.net`
-            const statementMessage = generatePaymentStatement({
+            const statementMessage = await generatePaymentStatement({
                 nombre: nombre || 'Cliente',
                 numeros: numeros || [],
                 total: total || 0,
@@ -168,6 +168,7 @@ const main = async () => {
                 metodoPago: metodoPago || 'efectivo',
                 abonos: abonos || [],
                 nota: nota || undefined,
+                organizacionId,
             })
 
             await bot.sendMessage(jid, statementMessage, {})

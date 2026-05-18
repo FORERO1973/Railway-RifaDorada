@@ -489,10 +489,11 @@ export interface StatementInput {
     metodoPago: string
     abonos: AbonoData[]
     nota?: string
+    organizacionId?: string
 }
 
-export const generatePaymentStatement = (input: StatementInput): string => {
-    const { nombre, numeros, total, totalPagado, montoAbono, metodoPago, abonos, nota } = input
+export const generatePaymentStatement = async (input: StatementInput): Promise<string> => {
+    const { nombre, numeros, total, totalPagado, montoAbono, metodoPago, abonos, nota, organizacionId } = input
     const restante = total - totalPagado
     const estadoTotal = restante <= 0 ? '✅ PAGADO' : totalPagado > 0 ? '💳 ABONADO' : '⏳ PENDIENTE'
 
@@ -503,6 +504,14 @@ export const generatePaymentStatement = (input: StatementInput): string => {
         })
         return `${i + 1}. ${fecha} — $${a.monto.toLocaleString('es-CO')} (${a.metodoPago})`
     })
+
+    let labelPago = 'la cuenta indicada'
+    try {
+        const config = await getAppConfigFromFirestore(organizacionId)
+        if (config?.numeroCuenta?.trim()) {
+            labelPago = `${config.numeroCuenta.trim()} (*${(config.metodoPago || '').toUpperCase()})`
+        }
+    } catch { }
 
     const lines: string[] = [
         '💰 *ESTADO DE CUENTA*',
@@ -528,6 +537,19 @@ export const generatePaymentStatement = (input: StatementInput): string => {
         `✅ *Nuevo abono:* $${montoAbono.toLocaleString('es-CO')} (${metodoPago})`,
         ...(nota ? [`📝 ${nota}`] : []),
         '',
+    )
+
+    if (restante > 0) {
+        lines.push(
+            '━━ 💳 CÓMO PAGAR ━━',
+            `1. Transfiere a ${labelPago}`,
+            '2. Envía el comprobante por este chat',
+            '3. ¡Listo! Se registra tu pago',
+            '',
+        )
+    }
+
+    lines.push(
         restante <= 0
             ? '🎉 *¡Totalmente pagado!* Gracias por tu compromiso.'
             : `📌 _Restante: $${restante.toLocaleString('es-CO')} COP_`,
