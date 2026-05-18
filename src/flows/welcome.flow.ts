@@ -163,7 +163,15 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME)
         }
 
         if (opt === '5') {
-            const contacto = await getContactInfo()
+            let orgId: string | undefined
+            try {
+                const parts = await getAllParticipantsByPhone(userNumber)
+                if (parts.length > 0) {
+                    const rf = await getRaffleById(parts[0].rifaId)
+                    if (rf?.organizacionId) orgId = rf.organizacionId
+                }
+            } catch {}
+            const contacto = await getContactInfo(orgId)
             if (contacto) {
                 await sendWithPresence([
                     '📞 *CONTACTO*',
