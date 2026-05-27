@@ -1,40 +1,34 @@
 # Image size ~ 400MB
-FROM node:21-alpine3.18 as builder
+FROM node:22-alpine AS builder
 
 WORKDIR /app
 
-RUN corepack enable && corepack prepare pnpm@latest --activate
-ENV PNPM_HOME=/usr/local/bin
-
-COPY . .
-
-COPY package*.json *-lock.yaml ./
+COPY package*.json ./
+COPY tsconfig.json rollup.config.js ./
 
 RUN apk add --no-cache --virtual .gyp \
         python3 \
         make \
         g++ \
     && apk add --no-cache git \
-    && pnpm install && pnpm run build \
+    && npm install \
+    && npm run build \
     && apk del .gyp
 
-FROM node:21-alpine3.18 as deploy
+FROM node:22-alpine AS deploy
 
 WORKDIR /app
 
-ARG PORT
-ENV PORT $PORT
+ARG PORT=3008
+ENV PORT=$PORT
 EXPOSE $PORT
 
 COPY --from=builder /app/assets ./assets
 COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/*.json /app/*-lock.yaml ./
+COPY --from=builder /app/package*.json ./
+COPY --from=builder /app/node_modules ./node_modules
 
-RUN corepack enable && corepack prepare pnpm@latest --activate 
-ENV PNPM_HOME=/usr/local/bin
+RUN addgroup -g 1001 -S nodejs && adduser -S -u 1001 nodejs
 
-RUN npm cache clean --force && pnpm install --production --ignore-scripts \
-    && addgroup -g 1001 -S nodejs && adduser -S -u 1001 nodejs \
-    && rm -rf $PNPM_HOME/.npm $PNPM_HOME/.node-gyp
-
+USER nodejs
 CMD ["npm", "start"]
