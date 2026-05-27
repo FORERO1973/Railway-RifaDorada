@@ -5,6 +5,8 @@ WORKDIR /app
 
 COPY package*.json ./
 COPY tsconfig.json rollup.config.js ./
+COPY src ./src
+COPY assets ./assets
 
 RUN apk add --no-cache --virtual .gyp \
         python3 \
@@ -27,8 +29,9 @@ COPY --from=builder /app/assets ./assets
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/package*.json ./
 COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/src ./src
 
 RUN addgroup -g 1001 -S nodejs && adduser -S -u 1001 nodejs
 
 USER nodejs
-CMD ["npm", "start"]
+CMD ["node", "dist/app.js"]
