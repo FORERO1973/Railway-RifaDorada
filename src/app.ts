@@ -415,6 +415,19 @@ const main = async () => {
     )
 
     adapterProvider.server.get(
+        '/health',
+        handleCtx(async (bot, req, res) => {
+            const { getConnectionStatus } = await import('./sharedState')
+            res.writeHead(200, { 'Content-Type': 'application/json' })
+            return res.end(JSON.stringify({
+                status: 'ok',
+                connection: getConnectionStatus(),
+                timestamp: new Date().toISOString(),
+            }))
+        })
+    )
+
+    adapterProvider.server.get(
         '/v1/status',
         handleCtx(async (bot, req, res) => {
             const { getConnectionStatus, getCurrentQrBase64 } = await import('./sharedState')
