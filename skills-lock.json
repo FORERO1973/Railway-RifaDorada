@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "skills": {
+    "builderbot-code-skill": {
+      "source": "leifermendez/skill-builderbot-code",
+      "sourceType": "github",
+      "skillPath": "builderbot-code-skill/SKILL.md",
+      "computedHash": "c70b87b2ccd92590bcae526af3b464c7d1f34c112a12c553eff11c5622d5690b"
+    }
+  }
+}
