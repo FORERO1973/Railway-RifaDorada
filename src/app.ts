@@ -528,4 +528,8 @@ const main = async () => {
     setInterval(checkConnection, 30000)
 }
 
-main()
+main().catch(e => {
+    console.error('[FATAL]', e?.message || e)
+    console.error('[FATAL STACK]', e?.stack || '')
+    process.exit(1)
+})
