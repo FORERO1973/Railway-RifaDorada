@@ -1,0 +1,11 @@
+[phases.setup]
+nixPkgs = ["nodejs_20", "git"]
+
+[phases.install]
+cmds = ["npm install"]
+
+[phases.build]
+cmds = ["npm run build"]
+
+[deploy]
+startCommand = "npx tsx src/app.ts"

@@ -412,40 +412,56 @@ export const saveParticipanteToFirestore = async (
         const rifa = await getRifaFromFirestore(rifaId)
         if (!rifa) return ''
 
-        const docRef = db.collection('participantes').doc()
+        const firestoreDb = db
+        const docRef = firestoreDb.collection('participantes').doc()
         const participanteId = docRef.id
 
         const rifaDigits = rifa.tipoRifa === '3 cifras' ? 3 : 2
         const numerosStr = numeros.map(n => n.toString().padStart(rifaDigits, '0'))
 
-        await docRef.set({
-            rifaId,
-            organizacionId: rifa.organizacionId || '',
-            nombre: participante.nombre,
-            whatsapp: participante.whatsapp,
-            ciudad: participante.ciudad,
-            numeros: numerosStr,
-            estadoPago,
-            totalPagado: estadoPago === 'pagado' ? total : 0,
-            fechaRegistro: new Date().toISOString(),
-            abonos: [],
+        // We run a transaction to check the availability of the numbers and write both documents
+        await firestoreDb.runTransaction(async (transaction) => {
+            // 1. Check all requested numbers first (reads must happen before writes)
+            for (const num of numerosStr) {
+                const numRef = firestoreDb.collection('rifas').doc(rifaId).collection('numeros').doc(num)
+                const numDoc = await transaction.get(numRef)
+                if (numDoc.exists) {
+                    const data = numDoc.data()
+                    if (data && (data.estado === 'reservado' || data.estado === 'pagado' || data.estado === 'ocupado')) {
+                        throw new Error(`El número ${num} ya se encuentra ocupado por otra compra simultánea.`)
+                    }
+                }
+            }
+
+            // 2. Write participant doc
+            transaction.set(docRef, {
+                rifaId,
+                organizacionId: rifa.organizacionId || '',
+                nombre: participante.nombre,
+                whatsapp: participante.whatsapp,
+                ciudad: participante.ciudad,
+                numeros: numerosStr,
+                estadoPago,
+                totalPagado: estadoPago === 'pagado' ? total : 0,
+                fechaRegistro: new Date().toISOString(),
+                abonos: [],
+            })
+
+            // 3. Update all numbers' states
+            for (const num of numerosStr) {
+                const numRef = firestoreDb.collection('rifas').doc(rifaId).collection('numeros').doc(num)
+                transaction.set(numRef, {
+                    estado: estadoPago === 'pagado' ? 'pagado' : 'reservado',
+                    participanteId,
+                    rifaId,
+                })
+            }
         })
 
-        const batch = db.batch()
-        for (const num of numerosStr) {
-            const numRef = db.collection('rifas').doc(rifaId).collection('numeros').doc(num)
-            batch.set(numRef, {
-                estado: estadoPago === 'pagado' ? 'pagado' : 'reservado',
-                participanteId,
-                rifaId,
-            })
-        }
-        await batch.commit()
-
-        console.log('[FIREBASE] Participante guardado:', participante.nombre)
+        console.log('[FIREBASE] Participante guardado atómicamente:', participante.nombre)
         return participanteId
     } catch (error) {
-        console.error('[FIREBASE] Error guardando participante:', error)
+        console.error('[FIREBASE] Error guardando participante en transacción:', error)
         return ''
     }
 }
