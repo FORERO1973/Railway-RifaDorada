@@ -8,6 +8,7 @@ import { tmpdir } from 'os'
 import { join, extname } from 'path'
 import { flow } from './flows'
 import { initRaffleService, syncRaffles, syncParticipants, getActiveRaffles as getRifas, getParticipants, getRaffleById, getParticipantByWhatsapp, generateTicketMessage, generatePaymentStatement } from './flows/services/raffleService'
+import { restoreSessionFromFirestore, startAutoBackup } from './firebaseAuthState'
 import { setStatusImageUrl, setConnectionStatus, setCurrentQrBase64 } from './sharedState'
 
 const PORT = process.env.PORT ?? 3008
@@ -26,6 +27,9 @@ function requireAuth(req: any, res: any): boolean {
 const main = async () => {
     await initRaffleService()
     console.log('[APP] Servicio de rifas inicializado')
+
+    // Restore WhatsApp session from Firestore (if available)
+    await restoreSessionFromFirestore()
 
     const adapterFlow = flow
 
@@ -415,6 +419,19 @@ const main = async () => {
     )
 
     adapterProvider.server.get(
+        '/health',
+        handleCtx(async (bot, req, res) => {
+            const { getConnectionStatus } = await import('./sharedState')
+            res.writeHead(200, { 'Content-Type': 'application/json' })
+            return res.end(JSON.stringify({
+                status: 'ok',
+                connection: getConnectionStatus(),
+                timestamp: new Date().toISOString(),
+            }))
+        })
+    )
+
+    adapterProvider.server.get(
         '/v1/status',
         handleCtx(async (bot, req, res) => {
             const { getConnectionStatus, getCurrentQrBase64 } = await import('./sharedState')
@@ -513,6 +530,12 @@ const main = async () => {
     }
 
     setInterval(checkConnection, 30000)
+
+    startAutoBackup()
 }
 
-main()
+main().catch(e => {
+    console.error('[FATAL]', e?.message || e)
+    console.error('[FATAL STACK]', e?.stack || '')
+    process.exit(1)
+})
