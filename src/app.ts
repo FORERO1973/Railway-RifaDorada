@@ -8,6 +8,7 @@ import { tmpdir } from 'os'
 import { join, extname } from 'path'
 import { flow } from './flows'
 import { initRaffleService, syncRaffles, syncParticipants, getActiveRaffles as getRifas, getParticipants, getRaffleById, getParticipantByWhatsapp, generateTicketMessage, generatePaymentStatement } from './flows/services/raffleService'
+import { restoreSessionFromFirestore, startAutoBackup } from './firebaseAuthState'
 import { setStatusImageUrl, setConnectionStatus, setCurrentQrBase64 } from './sharedState'
 
 const PORT = process.env.PORT ?? 3008
@@ -26,6 +27,8 @@ function requireAuth(req: any, res: any): boolean {
 const main = async () => {
     await initRaffleService()
     console.log('[APP] Servicio de rifas inicializado')
+
+    await restoreSessionFromFirestore()
 
     const adapterFlow = flow
 
@@ -526,6 +529,8 @@ const main = async () => {
     }
 
     setInterval(checkConnection, 30000)
+
+    startAutoBackup()
 }
 
 main().catch(e => {
