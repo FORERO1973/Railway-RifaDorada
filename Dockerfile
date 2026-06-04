@@ -10,7 +10,6 @@ COPY package*.json ./
 RUN npm install
 
 COPY src ./src
-COPY assets ./assets
 
 RUN addgroup -g 1001 -S nodejs && adduser -S -u 1001 nodejs \
     && chown -R nodejs:nodejs /app
