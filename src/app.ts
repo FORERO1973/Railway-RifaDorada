@@ -10,6 +10,7 @@ import { flow } from './flows'
 import { initRaffleService, syncRaffles, syncParticipants, getActiveRaffles as getRifas, getParticipants, getRaffleById, getParticipantByWhatsapp, generateTicketMessage, generatePaymentStatement } from './flows/services/raffleService'
 import { restoreSessionFromFirestore, startAutoBackup } from './firebaseAuthState'
 import { setStatusImageUrl, setConnectionStatus, setCurrentQrBase64 } from './sharedState'
+import { getFirestoreDb } from './flows/services/firebaseService'
 
 const PORT = process.env.PORT ?? 3008
 const API_KEY = process.env.API_KEY
@@ -24,11 +25,47 @@ function requireAuth(req: any, res: any): boolean {
     return false
 }
 
+async function restoreImagesFromFirestore() {
+    const fsDb = getFirestoreDb()
+    if (!fsDb) return
+
+    try {
+        const snapshot = await fsDb.collection('rifa_images').get()
+        if (snapshot.empty) {
+            console.log('[UPLOAD] No hay imágenes en Firestore para restaurar')
+            return
+        }
+
+        const uploadDir = join(process.cwd(), 'uploads')
+        if (!existsSync(uploadDir)) {
+            mkdirSync(uploadDir, { recursive: true })
+        }
+
+        let restored = 0
+        for (const doc of snapshot.docs) {
+            const data = doc.data()
+            const filePath = join(uploadDir, data.filename)
+            if (!existsSync(filePath)) {
+                const buffer = Buffer.from(data.base64, 'base64')
+                writeFileSync(filePath, buffer)
+                restored++
+            }
+        }
+        console.log(`[UPLOAD] ${restored} imagen(es) restaurada(s) desde Firestore`)
+    } catch (e: any) {
+        console.error('[UPLOAD] Error restaurando imágenes:', e.message)
+    }
+}
+
 const main = async () => {
     await initRaffleService()
     console.log('[APP] Servicio de rifas inicializado')
 
+    // Restore WhatsApp session from Firestore (if available)
     await restoreSessionFromFirestore()
+
+    // Restore uploaded images from Firestore to disk
+    await restoreImagesFromFirestore()
 
     const adapterFlow = flow
 
@@ -377,6 +414,15 @@ const main = async () => {
                     const buffer = Buffer.from(base64Data, 'base64')
                     const filename = `rifa_${Date.now()}_${i}.jpg`
                     writeFileSync(join(uploadDir, filename), buffer)
+                    // Persist to Firestore
+                    const fsDb = getFirestoreDb()
+                    if (fsDb) {
+                        await fsDb.collection('rifa_images').doc(filename).set({
+                            filename,
+                            base64: base64Data,
+                            createdAt: new Date().toISOString(),
+                        }).catch((e: any) => console.error('[UPLOAD] Error guardando en Firestore:', e.message))
+                    }
                     urls.push(`/uploads/${filename}`)
                 }
                 const host = req.headers.host || `localhost:${PORT}`
@@ -402,6 +448,26 @@ const main = async () => {
             }
             const filePath = join(uploadDir, filename)
             if (!existsSync(filePath)) {
+                // Try to restore from Firestore on-the-fly
+                try {
+                    const fsDb = getFirestoreDb()
+                    if (fsDb) {
+                        const doc = await fsDb.collection('rifa_images').doc(filename).get()
+                        if (doc.exists) {
+                            const data = doc.data()!
+                            const buffer = Buffer.from(data.base64, 'base64')
+                            writeFileSync(filePath, buffer)
+                            const mime: Record<string, string> = {
+                                '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
+                                '.png': 'image/png', '.gif': 'image/gif',
+                                '.webp': 'image/webp',
+                            }
+                            const ext = extname(filename).toLowerCase()
+                            res.writeHead(200, { 'Content-Type': mime[ext] || 'application/octet-stream' })
+                            return res.end(buffer)
+                        }
+                    }
+                } catch (_) {}
                 res.writeHead(404)
                 return res.end('Not found')
             }
