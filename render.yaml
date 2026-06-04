@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: rifadorada-bot
+    runtime: docker
+    repo: https://github.com/FORERO1973/Railway-RifaDorada
+    plan: free
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
+    envVars:
+      - key: PORT
+        value: 3008
+      - key: API_KEY
+        sync: false
+      - key: GOOGLE_APPLICATION_CREDENTIALS
+        sync: false
