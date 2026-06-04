@@ -150,19 +150,14 @@ export const getRifasFromFirestore = async (): Promise<FirestoreRifa[]> => {
         for (const doc of rifasSnapshot.docs) {
             const data = doc.data()
             
-            let numerosVendidos: string[] = []
-            
-            if (data.numeros && Array.isArray(data.numeros)) {
-                numerosVendidos = data.numeros.map(String)
-            } else {
-                const numerosDoc = await db.collection('rifas').doc(doc.id).collection('numeros').get()
-                numerosDoc.forEach(numDoc => {
-                    const numData = numDoc.data()
-                    if (numData.estado === 'pagado' || numData.estado === 'reservado') {
-                        numerosVendidos.push(numDoc.id)
-                    }
-                })
-            }
+            const numerosDoc = await db.collection('rifas').doc(doc.id).collection('numeros').get()
+            const numerosVendidos: string[] = []
+            numerosDoc.forEach(numDoc => {
+                const numData = numDoc.data()
+                if (numData.estado === 'pagado' || numData.estado === 'reservado') {
+                    numerosVendidos.push(numDoc.id)
+                }
+            })
 
             const estaActiva = data.activa === true || data.activa === undefined
 
@@ -213,19 +208,14 @@ export const getRifaFromFirestore = async (id: string): Promise<FirestoreRifa | 
 
         const data = doc.data()!
         
-        let numerosVendidos: string[] = []
-        
-        if (data.numeros && Array.isArray(data.numeros)) {
-            numerosVendidos = data.numeros.map(String)
-        } else {
-            const numerosDoc = await db.collection('rifas').doc(id).collection('numeros').get()
-            numerosDoc.forEach(numDoc => {
-                const numData = numDoc.data()
-                if (numData.estado === 'pagado' || numData.estado === 'reservado') {
-                    numerosVendidos.push(numDoc.id)
-                }
-            })
-        }
+        const numerosDoc = await db.collection('rifas').doc(id).collection('numeros').get()
+        const numerosVendidos: string[] = []
+        numerosDoc.forEach(numDoc => {
+            const numData = numDoc.data()
+            if (numData.estado === 'pagado' || numData.estado === 'reservado') {
+                numerosVendidos.push(numDoc.id)
+            }
+        })
 
         return {
             id: doc.id,
