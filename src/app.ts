@@ -119,8 +119,10 @@ const main = async () => {
 
                     const caption = message?.trim() || '🎫 *Ticket RifaDorada*'
                     await adapterProvider.sendImage(jid, tmpFile, caption)
+                    console.log('[MESSAGES] Imagen enviada a', jid, `(${(imageBase64.length / 1024).toFixed(1)} KB)`)
                 } else {
                     await bot.sendMessage(jid, message, {})
+                    console.log('[MESSAGES] Mensaje enviado a', jid)
                 }
                 res.writeHead(200, { 'Content-Type': 'application/json' })
                 return res.end(JSON.stringify({ status: 'ok', message: 'Mensaje enviado' }))
@@ -266,6 +268,8 @@ const main = async () => {
 
             const ticketMessage = await generateTicketMessage(participante, rifa)
             await bot.sendMessage(`${whatsapp}@s.whatsapp.net`, ticketMessage, {})
+
+            console.log('[SEND-TICKET] Ticket enviado a', whatsapp, 'para rifa', rifaId)
 
             res.writeHead(200, { 'Content-Type': 'application/json' })
             return res.end(JSON.stringify({ status: 'ok', message: 'Ticket enviado' }))
