@@ -1,26 +1,39 @@
-import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync } from 'fs'
+import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, rmSync } from 'fs'
 import { join } from 'path'
-import { getFirestore } from 'firebase-admin/firestore'
+import { getFirestoreDb } from './flows/services/firebaseService'
 
 const AUTH_DIR = join(process.cwd(), 'bot_sessions')
 const SESSION_COLLECTION = 'bot_sessions'
 const SESSION_DOC_ID = 'whatsapp_session'
 const BACKUP_INTERVAL_MS = 30000
+// Firestore limita cada documento a 1 MB. La sesión de Baileys pesa pocos KB,
+// pero se avisa si crece demasiado para no guardar credenciales incompletas.
+const MAX_DOC_BYTES = 900 * 1024
 
 let _backupTimer: ReturnType<typeof setInterval> | null = null
+let _backupInProgress = false
 
 async function readDocRef() {
-    const db = getFirestore()
+    const db = getFirestoreDb()
+    if (!db) return null
     return db.collection(SESSION_COLLECTION).doc(SESSION_DOC_ID)
 }
 
 export async function restoreSessionFromFirestore(): Promise<boolean> {
     try {
         const docRef = await readDocRef()
+        if (!docRef) {
+            console.log('[AUTH-FB] Firebase no disponible, se omite la restauración de sesión.')
+            return false
+        }
+
         const snap = await docRef.get()
 
         if (!snap.exists) {
-            console.log('[AUTH-FB] No hay sesión guardada en Firestore. Se generará una nueva.')
+            console.log('[AUTH-FB] No hay sesión guardada en Firestore. Limpiando directorio local.')
+            if (existsSync(AUTH_DIR)) {
+                rmSync(AUTH_DIR, { recursive: true, force: true })
+            }
             return false
         }
 
@@ -28,13 +41,19 @@ export async function restoreSessionFromFirestore(): Promise<boolean> {
         const files: Record<string, string> = data.files ?? {}
 
         if (Object.keys(files).length === 0) {
-            console.log('[AUTH-FB] Sesión vacía en Firestore.')
+            console.log('[AUTH-FB] Sesión vacía en Firestore. Limpiando directorio local.')
+            if (existsSync(AUTH_DIR)) {
+                rmSync(AUTH_DIR, { recursive: true, force: true })
+            }
             return false
         }
 
-        if (!existsSync(AUTH_DIR)) {
-            mkdirSync(AUTH_DIR, { recursive: true })
+        // Se reemplaza el directorio completo para no mezclar credenciales
+        // viejas con las restauradas.
+        if (existsSync(AUTH_DIR)) {
+            rmSync(AUTH_DIR, { recursive: true, force: true })
         }
+        mkdirSync(AUTH_DIR, { recursive: true })
 
         for (const [filename, base64Content] of Object.entries(files)) {
             const buffer = Buffer.from(base64Content, 'base64')
@@ -50,14 +69,17 @@ export async function restoreSessionFromFirestore(): Promise<boolean> {
 }
 
 async function backupSessionToFirestore(): Promise<void> {
+    if (_backupInProgress) return
+
     try {
         if (!existsSync(AUTH_DIR)) {
-            console.log('[AUTH-FB] Directorio de sesión no existe, saltando backup.')
             return
         }
 
         const fileNames = readdirSync(AUTH_DIR)
-        if (fileNames.length === 0) return
+        // Sin creds.json la sesión está incompleta (p. ej. mientras se
+        // regenera tras un 401) y no debe sobrescribir el backup bueno.
+        if (!fileNames.includes('creds.json')) return
 
         const files: Record<string, string> = {}
 
@@ -71,16 +93,29 @@ async function backupSessionToFirestore(): Promise<void> {
             }
         }
 
+        const totalBytes = Object.values(files).reduce((sum, v) => sum + v.length, 0)
+        if (totalBytes > MAX_DOC_BYTES) {
+            console.error(
+                `[AUTH-FB] Sesión demasiado grande para Firestore (${(totalBytes / 1024).toFixed(1)} KB > ${(MAX_DOC_BYTES / 1024).toFixed(0)} KB). Backup omitido.`
+            )
+            return
+        }
+
         const docRef = await readDocRef()
+        if (!docRef) return
+
+        _backupInProgress = true
         await docRef.set({
             files,
             updatedAt: new Date().toISOString(),
         })
 
-        const totalKB = Object.entries(files).reduce((sum, [,v]) => sum + v.length, 0) / 1024
+        const totalKB = totalBytes / 1024
         console.log(`[AUTH-FB] Backup completado: ${Object.keys(files).length} archivos (${totalKB.toFixed(1)} KB)`)
     } catch (e) {
         console.error('[AUTH-FB] Error en backup:', e)
+    } finally {
+        _backupInProgress = false
     }
 }
 
@@ -103,6 +138,7 @@ export function stopAutoBackup(): void {
 export async function clearFirestoreSession(): Promise<void> {
     try {
         const docRef = await readDocRef()
+        if (!docRef) return
         await docRef.delete()
         console.log('[AUTH-FB] Sesión eliminada de Firestore (sesión expirada o inválida)')
     } catch (e) {

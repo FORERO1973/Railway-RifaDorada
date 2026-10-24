@@ -69,7 +69,19 @@ const main = async () => {
 
     const adapterFlow = flow
 
-    const adapterProvider = createProvider(Provider)
+    // El proveedor obtiene la versión vigente de WhatsApp Web al arrancar.
+    // Nunca fijar `version` a mano: una versión vieja hace que WhatsApp cierre
+    // la conexión con status 405 y el bot se queda sin QR ni sesión.
+    const phoneNumber = process.env.PHONE_NUMBER?.replace(/\D/g, '')
+    const adapterProvider = createProvider(Provider, {
+        name: 'bot',
+        // Si se define PHONE_NUMBER en el hosting se usa código de emparejamiento
+        // (útil cuando no hay forma de escanear el QR desde los logs).
+        ...(phoneNumber ? { usePairingCode: true, phoneNumber } : {}),
+        // Si WhatsApp cierra la sesión (401), el proveedor borra las credenciales
+        // locales y vuelve a generar un QR automáticamente.
+        clearAuthOnLogout: true,
+    })
 
     const adapterDB = new Database()
 
@@ -558,27 +570,51 @@ const main = async () => {
         if (data?.payload?.qr) {
             setConnectionStatus('qr_pending')
             setCurrentQrBase64(data.payload.qr)
-            console.log('[STATUS] QR generated')
+            console.log('[STATUS] QR generado. Escanéalo desde la app (Configuración → Bot) o consulta /v1/status')
+        }
+        if (data?.payload?.code) {
+            console.log('[STATUS] Código de emparejamiento:', data.payload.code)
         }
     })
 
-    prov.on('auth_failure', async () => {
+    prov.on('auth_failure', async (payload: any) => {
+        const details = Array.isArray(payload) ? payload.join(' | ') : String(payload ?? 'desconocido')
+        console.error('[STATUS] Auth failure:', details)
         setConnectionStatus('disconnected')
         setCurrentQrBase64(null)
-        console.log('[STATUS] Auth failure — Limpiando sesión expirada de Firestore...')
-        await clearFirestoreSession()
+
+        // Solo borrar la sesión de Firestore si WhatsApp la invalidó (401).
+        // Antes se borraba con CUALQUIER fallo (red, 405, etc.), perdiendo
+        // la sesión buena y obligando a emparejar de nuevo.
+        if (/\b401\b|logged this session out/i.test(details)) {
+            console.log('[STATUS] Sesión invalidada por WhatsApp (401) — limpiando sesión de Firestore...')
+            await clearFirestoreSession()
+        }
     })
 
     if (prov.vendor?.ev) {
         prov.vendor.ev.on('connection.update', async (update: any) => {
-            const { connection, qr } = update
-            if (connection === 'open') {
-                setConnectionStatus('connected')
-                setCurrentQrBase64(null)
-            } else if (connection === 'close') {
+            const { connection, qr, lastDisconnect } = update
+            const statusCode = lastDisconnect?.error?.output?.statusCode
+            const reason = lastDisconnect?.error?.message
+
+            if (connection === 'close') {
+                console.log('[STATUS] Conexión cerrada', statusCode ? `status=${statusCode}` : '', reason ? `(${reason})` : '')
                 setConnectionStatus('disconnected')
                 setCurrentQrBase64(null)
+
+                if (statusCode === 401) {
+                    console.log('[STATUS] WhatsApp cerró la sesión (401) — limpiando sesión de Firestore...')
+                    await clearFirestoreSession()
+                }
+            } else if (connection === 'open') {
+                console.log('[STATUS] Conexión abierta con WhatsApp')
+                setConnectionStatus('connected')
+                setCurrentQrBase64(null)
+            } else if (connection === 'connecting') {
+                console.log('[STATUS] Conectando con WhatsApp...')
             }
+
             if (qr) {
                 setConnectionStatus('qr_pending')
                 setCurrentQrBase64(qr)
