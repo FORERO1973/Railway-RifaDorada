@@ -69,9 +69,7 @@ const main = async () => {
 
     const adapterFlow = flow
 
-    const adapterProvider = createProvider(Provider,
-        { version: [2, 3000, 1035824857] }
-    )
+    const adapterProvider = createProvider(Provider)
 
     const adapterDB = new Database()
 
