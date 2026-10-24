@@ -5,6 +5,8 @@ node_modules
 *_sessions
 *tokens
 .wwebjs*
+.rollup.cache
+uploads
 
 *.log
 *qr.png

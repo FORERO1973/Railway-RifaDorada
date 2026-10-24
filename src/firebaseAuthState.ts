@@ -99,3 +99,13 @@ export function stopAutoBackup(): void {
         _backupTimer = null
     }
 }
+
+export async function clearFirestoreSession(): Promise<void> {
+    try {
+        const docRef = await readDocRef()
+        await docRef.delete()
+        console.log('[AUTH-FB] Sesión eliminada de Firestore (sesión expirada o inválida)')
+    } catch (e) {
+        console.error('[AUTH-FB] Error eliminando sesión de Firestore:', e)
+    }
+}

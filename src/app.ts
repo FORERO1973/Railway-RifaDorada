@@ -8,7 +8,7 @@ import { tmpdir } from 'os'
 import { join, extname } from 'path'
 import { flow } from './flows'
 import { initRaffleService, syncRaffles, syncParticipants, getActiveRaffles as getRifas, getParticipants, getRaffleById, getParticipantByWhatsapp, generateTicketMessage, generatePaymentStatement } from './flows/services/raffleService'
-import { restoreSessionFromFirestore, startAutoBackup } from './firebaseAuthState'
+import { restoreSessionFromFirestore, startAutoBackup, clearFirestoreSession } from './firebaseAuthState'
 import { setStatusImageUrl, setConnectionStatus, setCurrentQrBase64 } from './sharedState'
 import { getFirestoreDb } from './flows/services/firebaseService'
 
@@ -564,10 +564,11 @@ const main = async () => {
         }
     })
 
-    prov.on('auth_failure', () => {
+    prov.on('auth_failure', async () => {
         setConnectionStatus('disconnected')
         setCurrentQrBase64(null)
-        console.log('[STATUS] Auth failure')
+        console.log('[STATUS] Auth failure — Limpiando sesión expirada de Firestore...')
+        await clearFirestoreSession()
     })
 
     if (prov.vendor?.ev) {
